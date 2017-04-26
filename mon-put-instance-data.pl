@@ -49,7 +49,7 @@ Description of available options:
   --aws-iam-role=VALUE        Specifies the IAM role used to provide AWS credentials.
 
   --check-process                 Reports whether a process is running.
-  --process-to-check=PROC_NAME    Specifies the process name to be checked.
+  --process-list-file=LIST_FILE   Specifies the list file of processes to be checked, one per line.
 
   --from-cron  Specifies that this script is running from cron.
   --verify     Checks configuration and prepares a remote call.
@@ -140,7 +140,7 @@ my $parse_result = 1;
 my $parse_error = '';
 my $argv_size = @ARGV;
 my $check_process;
-my $process_to_check;
+my $process_list_file;
 
 {
   # Capture warnings from GetOptions
@@ -172,7 +172,7 @@ my $process_to_check;
     'enable-compression' => \$enable_compression,
     'aws-iam-role:s' => \$aws_iam_role,
     'check-process' => \$check_process,
-    'process-to-check:s' => \$process_to_check,
+    'process-list-file:s' => \$process_list_file,
     );
 
 }
@@ -249,6 +249,9 @@ if (defined($disk_units) && length($disk_units) == 0) {
 if (defined($aws_iam_role) && length($aws_iam_role) == 0) {
   exit_with_error("Value of AWS IAM role is not specified.");
 }
+if (defined($check_process) && length($process_list_file) == 0) {
+  exit_with_error("Path to process list file is not provided (--process-list-file).");
+}
 
 # check for inconsistency of provided arguments
 if (defined($aws_credential_file) && defined($aws_access_key_id)) {
@@ -268,9 +271,6 @@ elsif (defined($aws_iam_role) && defined($aws_credential_file)) {
 }
 elsif (defined($aws_iam_role) && defined($aws_secret_key)) {
   exit_with_error("Do not provide AWS IAM role and AWS access key id/secret key options together.");
-}
-elsif (defined($check_process) && !defined($process_to_check)) {
-  exit_with_error("Value of process-to-check is not specified.");
 }
 
 # decide on the reporting units for memory and swap usage
@@ -588,18 +588,16 @@ if ($report_disk_space)
 
 if ($check_process)
 {
-  my @proc_count = `/bin/ps -ef |grep -c $process_to_check`;
-  print "\nCheck process: $process_to_check, output: $proc_count.\n\n";
+  my @proc_count_output = `/bin/ps -ef | grep -v grep | grep -v process-list-file=$process_list_file | grep -cf $process_list_file`;
+  print "\nCheck process: $process_list_file, output:@proc_count_output\n";
 
-  if($proc_count == '1') {
-    print "\nProcess not running.\n\n";
-    add_metric('Process', 'Percent', 0);
-  } else {
-    print "\nProcess is running.\n\n";
-    add_metric('Process', 'Percent', 100);
+  foreach my $proc_count (@proc_count_output)
+  {
+    print "\nProcess count: $proc_count \n\n";
+    add_metric('ProcessCount', '', $proc_count);
   }
-
 }
+
 
 # send metrics over to CloudWatch if any
 
