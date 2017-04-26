@@ -48,7 +48,7 @@ Description of available options:
   --aws-secret-key=VALUE      Specifies the AWS secret key to use to sign the request.
   --aws-iam-role=VALUE        Specifies the IAM role used to provide AWS credentials.
 
-  --check-process                 Reports whether a process is running.
+  --check-process                 Reports whether processes specified by process-list-file are running.
   --process-list-file=LIST_FILE   Specifies the list file of processes to be checked, one per line.
 
   --from-cron  Specifies that this script is running from cron.
@@ -588,13 +588,14 @@ if ($report_disk_space)
 
 if ($check_process)
 {
-  my @proc_count_output = `/bin/ps -ef | grep -v grep | grep -v process-list-file=$process_list_file | grep -cf $process_list_file`;
-  print "\nCheck process: $process_list_file, output:@proc_count_output\n";
+  #my @proc_count_output = `/bin/ps -ef | grep -v grep | grep -v process-to-check=$process_to_check | grep -c $process_to_check`;
+  my @proc_count_output = `/bin/ps -ef | grep -cf $process_list_file`;
+  #print "\nCheck process: $process_list_file, output:@proc_count_output\n";
 
   foreach my $proc_count (@proc_count_output)
   {
-    print "\nProcess count: $proc_count \n\n";
-    add_metric('ProcessCount', '', $proc_count);
+    #print "\nProcess count: $proc_count \n\n";
+    add_metric('ProcessCount', 'Count', $proc_count);
   }
 }
 
