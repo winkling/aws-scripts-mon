@@ -588,8 +588,17 @@ if ($report_disk_space)
 
 if ($check_process)
 {
-  add_metric('Process', 'Percent', 100);
-  print "\nCheck process: $process_to_check\n\n";
+  my @proc_count = `/bin/ps -ef |grep -c $process_to_check`;
+  print "\nCheck process: $process_to_check, output: $proc_count.\n\n";
+
+  if($proc_count == '1') {
+    print "\nProcess not running.\n\n";
+    add_metric('Process', 'Percent', 0);
+  } else {
+    print "\nProcess is running.\n\n";
+    add_metric('Process', 'Percent', 100);
+  }
+
 }
 
 # send metrics over to CloudWatch if any
