@@ -32,6 +32,8 @@ Description of available options:
   --disk-space-used   Reports allocated disk space in gigabytes.
   --disk-space-avail  Reports available disk space in gigabytes.
 
+  --rabbitmq-queue    Reports message count of queues in RabbitMQ.
+
   --aggregated[=only]    Adds aggregated metrics for instance type, AMI id, and region.
                          If =only is specified, does not report individual instance metrics
   --auto-scaling[=only]  Reports Auto Scaling metrics in addition to instance metrics.
@@ -47,9 +49,6 @@ Description of available options:
   --aws-access-key-id=VALUE   Specifies the AWS access key ID to use to identify the caller.
   --aws-secret-key=VALUE      Specifies the AWS secret key to use to sign the request.
   --aws-iam-role=VALUE        Specifies the IAM role used to provide AWS credentials.
-
-  --check-process                 Reports whether processes specified by process-list-file are running.
-  --process-list-file=LIST_FILE   Specifies the list file of processes to be checked, one per line.
 
   --from-cron  Specifies that this script is running from cron.
   --verify     Checks configuration and prepares a remote call.
@@ -139,8 +138,7 @@ my $aws_iam_role;
 my $parse_result = 1;
 my $parse_error = '';
 my $argv_size = @ARGV;
-my $check_process;
-my $process_list_file;
+my $report_rabbitmq_queue;
 
 {
   # Capture warnings from GetOptions
@@ -171,8 +169,7 @@ my $process_list_file;
     'aws-secret-key:s' => \$aws_secret_key,
     'enable-compression' => \$enable_compression,
     'aws-iam-role:s' => \$aws_iam_role,
-    'check-process' => \$check_process,
-    'process-list-file:s' => \$process_list_file,
+    'rabbitmq-queue' => \$report_rabbitmq_queue,
     );
 
 }
@@ -248,9 +245,6 @@ if (defined($disk_units) && length($disk_units) == 0) {
 }
 if (defined($aws_iam_role) && length($aws_iam_role) == 0) {
   exit_with_error("Value of AWS IAM role is not specified.");
-}
-if (defined($check_process) && length($process_list_file) == 0) {
-  exit_with_error("Path to process list file is not provided (--process-list-file).");
 }
 
 # check for inconsistency of provided arguments
@@ -584,21 +578,32 @@ if ($report_disk_space)
   }
 }
 
-# check process
+# collect RabbitMQ queue metrics
 
-if ($check_process)
+if ($report_rabbitmq_queue)
 {
-  #my @proc_count_output = `/bin/ps -ef | grep -v grep | grep -v process-to-check=$process_to_check | grep -c $process_to_check`;
-  my @proc_count_output = `/bin/ps -ef | grep -cf $process_list_file`;
-  #print "\nCheck process: $process_list_file, output:@proc_count_output\n";
+  my @lines = `./rabbitmqadmin -f tsv list queues name messages`;
+  if($verbose) {
+    print "\n@lines\n";
+  }
+  #example output:
+  #name	messages
+  #a_queue	0
+  #another_queue	0
+  shift @lines;
 
-  foreach my $proc_count (@proc_count_output)
+  foreach my $line (@lines)
   {
-    #print "\nProcess count: $proc_count \n\n";
-    add_metric('ProcessCount', 'Count', $proc_count);
+    my @fields = split('\s+', $line);
+    my $queue_name = $fields[0];
+    my $queue_msg_count = $fields[1];
+    if($verbose) {
+      print "\nqueuename=$queue_name, msg count=$queue_msg_count\n";
+    }
+
+    add_metric($queue_name, 'Count', $queue_msg_count);
   }
 }
-
 
 # send metrics over to CloudWatch if any
 
