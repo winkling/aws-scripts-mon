@@ -334,7 +334,7 @@ if (!$report_disk_space && ($report_disk_util || $report_disk_used || $report_di
 # check that there is a need to monitor at least something
 if (!$report_mem_util && !$report_mem_used && !$report_mem_avail
   && !$report_swap_util && !$report_swap_used && !$report_disk_space
-  && !$check_process)
+  && !$report_rabbitmq_queue)
 {
   exit_with_error("No metrics specified for collection and submission to CloudWatch.");
 }
