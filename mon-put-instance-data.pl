@@ -582,7 +582,8 @@ if ($report_disk_space)
 
 if ($report_rabbitmq_queue)
 {
-  my @lines = `./rabbitmqadmin -f tsv list queues name messages`;
+  my ($volume, $directory, $file) = File::Spec->splitpath(__FILE__);
+  my @lines = `$directory/rabbitmqadmin -f tsv list queues name messages`;
   if($verbose) {
     print "\n@lines\n";
   }
