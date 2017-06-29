@@ -610,34 +610,50 @@ if ($report_rabbitmq_queue)
 
 if ($mcount > 0)
 {
-  my %opts = ();
-  $opts{'aws-credential-file'} = $aws_credential_file;
-  $opts{'aws-access-key-id'} = $aws_access_key_id;
-  $opts{'aws-secret-key'} = $aws_secret_key;
-  $opts{'retries'} = 2;
-  $opts{'verbose'} = $verbose;
-  $opts{'verify'} = $verify;
-  $opts{'user-agent'} = "$client_name/$version";
-  $opts{'enable_compression'} = 1 if ($enable_compression);
-  $opts{'aws-iam-role'} = $aws_iam_role;
+  # there is a limit: The collection MetricData must not have a size greater than 20.
+  while ($mcount > 0)
+  {
+    my %theparams = ();
+    $theparams{'Input'} = {};
+    my $the_input_ref = $theparams{'Input'};
+    $the_input_ref->{'Namespace'} = "System/Linux";
 
-  my $response = CloudWatchClient::call_json('PutMetricData', \%params, \%opts);
-  my $code = $response->code;
-  my $message = $response->message;
-
-  if ($code == 200 && !$from_cron) {
-    if ($verify) {
-      print "\nVerification completed successfully. No actual metrics sent to CloudWatch.\n\n";
-    } else {
-      my $request_id = $response->headers->{'x-amzn-requestid'};
-      print "\nSuccessfully reported metrics to CloudWatch. Reference Id: $request_id\n\n";
+    my $i=0;
+    for ($i=0; $i<20 && $mcount>0; $i++)
+    {
+      push(@{$the_input_ref->{'MetricData'}}, pop(@{$input_ref->{'MetricData'}}));
+      --$mcount;
     }
-  }
-  elsif ($code < 100) {
-    exit_with_error($message);
-  }
-  elsif ($code != 200) {
-    exit_with_error("Failed to call CloudWatch: HTTP $code. Message: $message");
+
+    my %opts = ();
+    $opts{'aws-credential-file'} = $aws_credential_file;
+    $opts{'aws-access-key-id'} = $aws_access_key_id;
+    $opts{'aws-secret-key'} = $aws_secret_key;
+    $opts{'retries'} = 2;
+    $opts{'verbose'} = $verbose;
+    $opts{'verify'} = $verify;
+    $opts{'user-agent'} = "$client_name/$version";
+    $opts{'enable_compression'} = 1 if ($enable_compression);
+    $opts{'aws-iam-role'} = $aws_iam_role;
+
+    my $response = CloudWatchClient::call_json('PutMetricData', \%theparams, \%opts);
+    my $code = $response->code;
+    my $message = $response->message;
+
+    if ($code == 200 && !$from_cron) {
+      if ($verify) {
+        print "\nVerification completed successfully. No actual metrics sent to CloudWatch.\n\n";
+      } else {
+        my $request_id = $response->headers->{'x-amzn-requestid'};
+        print "\nSuccessfully reported metrics to CloudWatch. Reference Id: $request_id\n\n";
+      }
+    }
+    elsif ($code < 100) {
+      exit_with_error($message);
+    }
+    elsif ($code != 200) {
+      exit_with_error("Failed to call CloudWatch: HTTP $code. Message: $message");
+    }
   }
 }
 else {
